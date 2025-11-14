@@ -1,0 +1,124 @@
+# Configuration file for MNIST digit recognition training.
+# Copy this file to config.toml and modify the parameters as needed.
+
+# =============================================================================
+# DATA CONFIGURATION
+# =============================================================================
+[data]
+data_dir = "./data"         # Directory to store/load MNIST data
+batch_size = 64             # Batch size for training
+val_split = 0.1             # Fraction of training data for validation
+num_workers = 4             # Number of worker processes for data loading
+seed = 42                   # Random seed for reproducibility
+augment = false              # Enable data augmentation
+
+# =============================================================================
+# MODEL CONFIGURATION
+# =============================================================================
+[model]
+# MNISTConvNet: Adaptive CNN with multi-resolution support
+# - 3 convolutional blocks with batch normalization
+# - Adaptive pooling for any input size
+# - ~616K params, ~99.4-99.6% accuracy on MNIST
+dropout_rate = 0.5          # Dropout rate for regularization
+
+# =============================================================================
+# TRAINING CONFIGURATION
+# =============================================================================
+[training]
+epochs = 20                 # Number of training epochs
+learning_rate = 0.001       # Initial learning rate
+optimizer = "adam"          # Optimizer: "adam", "adamw", or "sgd"
+momentum = 0.9              # Momentum for SGD optimizer
+weight_decay = 1e-4         # Weight decay (L2 regularization)
+scheduler = "plateau"       # LR scheduler: "none", "step", "plateau", "cosine"
+early_stopping_patience = 10 # Early stopping patience
+
+# =============================================================================
+# SCHEDULER-SPECIFIC CONFIGURATION
+# =============================================================================
+[scheduler.step]
+step_size = 10
+gamma = 0.1
+
+[scheduler.plateau]
+mode = "min"
+factor = 0.1
+patience = 5
+threshold = 1e-4
+cooldown = 0
+min_lr = 1e-6
+
+[scheduler.cosine]
+# T_max defaults to number of epochs if not specified
+eta_min = 1e-6
+
+# =============================================================================
+# PATHS CONFIGURATION
+# =============================================================================
+[paths]
+checkpoint_dir = "./checkpoints"
+log_dir = "./logs"
+# resume_from = ""  # Uncomment and set path to resume from checkpoint
+
+# =============================================================================
+# HARDWARE CONFIGURATION
+# =============================================================================
+[hardware]
+device = ""                 # "cuda", "cpu", or "" for auto-detection
+mixed_precision = false     # Enable mixed precision training
+cudnn_benchmark = false     # Enable cuDNN benchmark mode
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+[logging]
+print_every = 100           # Print progress every N batches
+save_every = 5              # Save checkpoint every N epochs
+visualize_during_training = false
+verbose = true
+
+# =============================================================================
+# EVALUATION CONFIGURATION
+# =============================================================================
+[evaluation]
+num_visualization_samples = 25
+save_plots = true
+show_plots = false
+classification_report = true
+confusion_matrix = true
+normalize_confusion_matrix = true
+
+# =============================================================================
+# PRESET CONFIGURATIONS
+# =============================================================================
+[presets.quick]
+epochs = 5
+batch_size = 128
+learning_rate = 0.001
+augment = false
+early_stopping_patience = 3
+
+[presets.default]
+epochs = 20
+batch_size = 64
+learning_rate = 0.001
+augment = false
+early_stopping_patience = 10
+
+[presets.high_accuracy]
+epochs = 50
+batch_size = 64
+learning_rate = 0.0005
+augment = true
+early_stopping_patience = 15
+scheduler = "cosine"
+
+[presets.fast_gpu]
+epochs = 15
+batch_size = 256
+learning_rate = 0.002
+augment = true
+num_workers = 8
+mixed_precision = true
+cudnn_benchmark = true

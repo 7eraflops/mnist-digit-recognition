@@ -1,0 +1,59 @@
+[project]
+name = "mnist-digit-recognition"
+version = "0.1.0"
+description = "MNIST handwritten digit recognition using PyTorch with ROCm support"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "tqdm",
+    "torch",
+    "torchvision",
+    "scikit-learn",
+    "pillow",
+    "seaborn",
+]
+
+[project.optional-dependencies]
+# ROCm backend - includes pytorch-triton-rocm
+rocm = [
+    "pytorch-triton-rocm",
+]
+
+[tool.uv]
+prerelease = "allow"
+
+# Default PyTorch index - ROCm 7.0
+# To use a different backend, use the --index flag:
+#
+# CPU:
+#   uv sync --index https://download.pytorch.org/whl/cpu
+#
+# CUDA 12.6:
+#   uv sync --index https://download.pytorch.org/whl/cu126
+#
+# CUDA 12.8:
+#   uv sync --index https://download.pytorch.org/whl/cu128
+#
+# CUDA 13.0:
+#   uv sync --index https://download.pytorch.org/whl/cu130
+#
+# ROCm 6.4:
+#   uv sync --extra rocm --index https://download.pytorch.org/whl/rocm6.4
+#
+# ROCm 7.0 (default):
+#   uv sync --extra rocm
+#
+# You can also set the UV_INDEX environment variable:
+#   UV_INDEX=https://download.pytorch.org/whl/cpu uv sync
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/nightly/rocm7.0"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchvision = { index = "pytorch" }
+pytorch-triton-rocm = { index = "pytorch" }
