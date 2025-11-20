@@ -40,10 +40,15 @@ def parse_args():
         help="Dropout rate (must match training)",
     )
     parser.add_argument(
-        "--adaptive",
+        "--force-original-size",
         action="store_true",
-        default=True,
-        help="Enable multi-resolution support (default: True)",
+        help="Force processing at original size (skip auto-resize)",
+    )
+    parser.add_argument(
+        "--target-size",
+        type=int,
+        default=28,
+        help="Target size for resizing (default: 28 for MNIST)",
     )
 
     # Input parameters
@@ -109,10 +114,55 @@ def create_model(args):
     return model
 
 
-def predict_single_image(inference_engine, image_path, args):
+def should_resize(image_path, target_size=28, tolerance=8):
+    """
+    Determine if image should be resized based on its dimensions.
+
+    Args:
+        image_path: Path to image
+        target_size: Target dimension (default: 28 for MNIST)
+        tolerance: Pixels of tolerance (default: 8)
+
+    Returns:
+        tuple: (should_resize, width, height)
+    """
+    from PIL import Image
+
+    img = Image.open(image_path)
+    width, height = img.size
+
+    # If image is within tolerance of target_size x target_size, keep original
+    min_size = target_size - tolerance
+    max_size = target_size + tolerance
+
+    close_to_target = min_size <= width <= max_size and min_size <= height <= max_size
+
+    return not close_to_target, width, height
+
+
+def predict_single_image(
+    inference_engine, image_path, args, was_resized=False, original_size=None
+):
     """Make prediction on a single image."""
+    from PIL import Image
+
     print(f"\nProcessing: {image_path}")
+    if was_resized and original_size:
+        print(
+            f"  (resized from {original_size[0]}x{original_size[1]} to {args.target_size}x{args.target_size})"
+        )
     print("-" * 50)
+
+    # Save resized image if it was resized
+    if was_resized and args.visualize:
+        img = Image.open(image_path).convert("L")
+        img_resized = img.resize((args.target_size, args.target_size), Image.BILINEAR)
+
+        os.makedirs(args.output_dir, exist_ok=True)
+        output_filename = f"resized_{Path(image_path).stem}.png"
+        output_path = os.path.join(args.output_dir, output_filename)
+        img_resized.save(output_path)
+        print(f"Resized image saved to: {output_path}")
 
     # Get top-k predictions
     top_classes, top_probs = inference_engine.predict_top_k(image_path, k=args.top_k)
@@ -139,7 +189,7 @@ def predict_single_image(inference_engine, image_path, args):
             save_path=output_path,
             show=False,
         )
-        print(f"Visualization saved to: {output_path}")
+        print(f"Prediction visualization saved to: {output_path}")
 
 
 def predict_image_directory(inference_engine, image_dir, args):
@@ -210,17 +260,40 @@ def main():
     print("Loading model...")
     model = create_model(args)
 
+    # Determine if we should resize based on image
+    needs_resize = False
+    original_size = None
+
+    if args.image and not args.force_original_size:
+        needs_resize, width, height = should_resize(
+            args.image, target_size=args.target_size
+        )
+        original_size = (width, height)
+
     # Create inference engine
+    # Use adaptive=True (keeps original size) if forcing original or image is close to target
+    # Use adaptive=False (resizes) if image is far from target size
+    adaptive = args.force_original_size or not needs_resize
+
     inference_engine = MNISTInference(
         model=model,
         checkpoint_path=args.checkpoint,
         device=device,
-        adaptive=args.adaptive,
+        adaptive=adaptive,
+        target_size=(args.target_size, args.target_size),
     )
 
     print("Model loaded successfully!")
-    if args.adaptive:
-        print("Multi-resolution mode enabled - can handle any input size!")
+    if args.force_original_size:
+        print("Processing at original image size (--force-original-size)")
+    elif not needs_resize:
+        print(
+            f"Image size close to {args.target_size}x{args.target_size} - processing at original size"
+        )
+    else:
+        print(
+            f"Auto-resizing to {args.target_size}x{args.target_size} for better accuracy"
+        )
 
     # Make predictions
     if args.image is not None:
@@ -229,13 +302,28 @@ def main():
             print(f"Error: Image not found: {args.image}")
             return
 
-        predict_single_image(inference_engine, args.image, args)
+        predict_single_image(
+            inference_engine,
+            args.image,
+            args,
+            was_resized=needs_resize,
+            original_size=original_size,
+        )
 
     else:
         # Directory prediction
         if not os.path.isdir(args.image_dir):
             print(f"Error: Directory not found: {args.image_dir}")
             return
+
+        # For directory, we'll check each image individually
+        # but print a summary about auto-resize behavior
+        if args.force_original_size:
+            print("\nProcessing all images at original size")
+        else:
+            print(
+                f"\nAuto-resize enabled: images far from {args.target_size}x{args.target_size} will be resized"
+            )
 
         predict_image_directory(inference_engine, args.image_dir, args)
 
