@@ -99,7 +99,11 @@ class MNISTInference:
         print(f"Model loaded from {checkpoint_path}")
 
     def preprocess_image(
-        self, image: Union[str, np.ndarray, Image.Image], preserve_size: bool = None
+        self,
+        image: Union[str, np.ndarray, Image.Image],
+        preserve_size: bool = None,
+        invert: bool = True,
+        center_digit: bool = True,
     ) -> torch.Tensor:
         """
         Preprocess an image for inference.
@@ -108,6 +112,9 @@ class MNISTInference:
             image: Input image (file path, numpy array, or PIL Image)
             preserve_size: Override for whether to preserve original size.
                           If None, uses self.adaptive setting
+            invert: If True, inverts the image (for black-on-white drawings).
+                   MNIST expects white digits on black background.
+            center_digit: If True, centers the digit with proper padding like MNIST
 
         Returns:
             torch.Tensor: Preprocessed image tensor
@@ -118,7 +125,7 @@ class MNISTInference:
         if isinstance(image, str):
             if not os.path.exists(image):
                 raise FileNotFoundError(f"Image not found: {image}")
-            image = Image.open(image)
+            image = Image.open(image).convert("L")  # Ensure grayscale
 
         # Convert numpy array to PIL Image
         elif isinstance(image, np.ndarray):
