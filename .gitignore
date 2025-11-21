@@ -12,7 +12,7 @@ wheels/
 # Project-specific directories
 data/
 checkpoints/
-logs/
+# logs/
 evaluation_results/
 predictions/
 
